@@ -97,6 +97,7 @@ class InMemoryRepositoryTest {
 
         // Then
         assertTrue(person.isPresent(), "شخص باید پیدا شود");
+
         assertEquals(EXISTING_NATIONAL_CODE, person.get().getNationalCode());
 
         log.info("Found person: {} {}",
