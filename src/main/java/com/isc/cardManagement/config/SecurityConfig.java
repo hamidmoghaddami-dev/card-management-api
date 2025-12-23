@@ -32,7 +32,7 @@ public class SecurityConfig {
                                 "/swagger-resources/**",
                                 "/webjars/**")
                         .permitAll()
-                        .anyRequest().permitAll()
+                        .anyRequest().authenticated()
                 )
                 // برای H2 Console - اجازه استفاده از iframe
                 .headers(headers -> headers
