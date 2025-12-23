@@ -6,6 +6,7 @@ import com.isc.cardManagement.dto.CreateCardRequestDto;
 import com.isc.cardManagement.entity.AccountEntity;
 import com.isc.cardManagement.entity.CardEntity;
 import com.isc.cardManagement.entity.IssuerEntity;
+import com.isc.cardManagement.exception.BadRequestException;
 import com.isc.cardManagement.exception.BusinessException;
 import com.isc.cardManagement.exception.NotFoundException;
 import com.isc.cardManagement.mapper.CardMapper;
@@ -13,10 +14,8 @@ import com.isc.cardManagement.repository.InMemoryRepository;
 import com.isc.cardManagement.repository.jpa.AccountRepository;
 import com.isc.cardManagement.repository.jpa.CardRepository;
 import com.isc.cardManagement.repository.jpa.IssuerRepository;
-import com.isc.cardManagement.repository.jpa.PersonRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.coyote.BadRequestException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,7 +29,6 @@ public class CardServiceImpl implements CardService {
 
     private final InMemoryRepository inMemoryRepository;
     private final CardRepository cardRepository;
-    private final PersonRepository personRepository;
     private final AccountRepository accountRepository;
     private final IssuerRepository issuerRepository;
 
@@ -38,7 +36,7 @@ public class CardServiceImpl implements CardService {
     @Override
     @Transactional(readOnly = true)
     public List<CardResponseDto> getCardsByNationalCode(String nationalCode) {
-        // Cache خودش Fallback به DB را مدیریت می‌کند
+
         Set<CardEntity> cards = inMemoryRepository.getCardsByNationalCode(nationalCode);
 
         if (cards.isEmpty()) {

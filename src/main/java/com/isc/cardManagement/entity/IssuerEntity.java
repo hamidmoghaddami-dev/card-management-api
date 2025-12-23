@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -14,6 +16,8 @@ import java.util.Set;
 @Table(name = "tbl_issuer")
 @Data
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class IssuerEntity {
 
     @Id
@@ -21,13 +25,13 @@ public class IssuerEntity {
     @Column(name = "issuer_id")
     private Long id;
 
-    @NotBlank
+    @NotBlank(message = "{issuer.code.not.blank}")
     @Size(min = 6, max = 6)
     @Pattern(regexp = "\\d+")
     @Column(name = "issuer_code", nullable = false, unique = true, length = 6)
     private String issuerCode;
 
-    @NotBlank
+    @NotBlank(message = "{issuer.name.not.blank}")
     @Size(max = 100)
     @Column(name = "issuer_name", nullable = false, length = 100)
     private String name;

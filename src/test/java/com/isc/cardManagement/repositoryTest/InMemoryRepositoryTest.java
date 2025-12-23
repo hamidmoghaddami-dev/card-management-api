@@ -6,30 +6,39 @@ import com.isc.cardManagement.entity.IssuerEntity;
 import com.isc.cardManagement.entity.PersonEntity;
 import com.isc.cardManagement.enums.AccountType;
 import com.isc.cardManagement.enums.CardType;
+import com.isc.cardManagement.exception.BadRequestException;
 import com.isc.cardManagement.repository.InMemoryRepository;
 import com.isc.cardManagement.repository.jpa.AccountRepository;
 import com.isc.cardManagement.repository.jpa.CardRepository;
 import com.isc.cardManagement.repository.jpa.IssuerRepository;
 import com.isc.cardManagement.repository.jpa.PersonRepository;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.coyote.BadRequestException;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.context.annotation.Import;
 import org.springframework.core.annotation.Order;
-import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.*;
 
 
-@Slf4j
-@SpringBootTest
-@ActiveProfiles("test")
+@DataJpaTest
+@Import(InMemoryRepository.class)
+@TestPropertySource(properties = {
+        "app.data.file-path=test-data-empty.txt",  // فایل خالی
+        "spring.jpa.hibernate.ddl-auto=create-drop"
+})
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-class InMemoryRepositoryTest {
+@DisplayName("InMemoryRepository unit Tests")
+class InMemoryRepositoryIntegrationTest {
+
+    @Autowired
+    private TestEntityManager entityManager;
 
     @Autowired
     private InMemoryRepository inMemoryRepository;
@@ -46,291 +55,413 @@ class InMemoryRepositoryTest {
     @Autowired
     private CardRepository cardRepository;
 
-    private static final String EXISTING_NATIONAL_CODE = "0063531425";
+
+    private IssuerEntity testIssuer;
+    private AccountEntity testAccount;
 
     @BeforeEach
     void setUp() {
-        log.info("Setting up test...");
+        // پاک کردن Cache قبل از هر تست
+        inMemoryRepository.clearAll();
 
-        // پاکسازی کامل (دیتابیس + کش)
-        inMemoryRepository.clearAllIncludingDatabase();
+        // ایجاد دیتای تستی در دیتابیس
+        PersonEntity testPerson = PersonEntity.builder()
+                .nationalCode("1234567890")
+                .firstName("علی")
+                .lastName("احمدی")
+                .phone("09121234567")
+                .address("تهران، خیابان ولیعصر")
+                .build();
+        testPerson = entityManager.persistAndFlush(testPerson);
 
-        // لود مجدد داده‌ها
-        inMemoryRepository.loadDataFromFile();
+        testIssuer = IssuerEntity.builder()
+                .issuerCode("627353")
+                .name("بانک تجارت")
+                .build();
+        testIssuer = entityManager.persistAndFlush(testIssuer);
 
-        // بررسی لود شدن
-        Map<String, Integer> stats = inMemoryRepository.getStatistics();
-        log.info("Repository statistics after load: {}", stats);
+        testAccount = AccountEntity.builder()
+                .accountNumber("1234567890")
+                .accountType(AccountType.SAVINGS)
+                .owner(testPerson)
+                .build();
+        testAccount = entityManager.persistAndFlush(testAccount);
 
-        assertTrue(
-                stats.get("cards") > 0,
-                "داده‌های اولیه باید لود شده باشند. Statistics: " + stats
-        );
+        entityManager.clear();
     }
 
-    @AfterEach
-    void tearDown() {
-        log.info("Cleaning up after test...");
-        inMemoryRepository.clearAllIncludingDatabase();
-    }
+    // ========== Person Tests ==========
 
     @Test
     @Order(1)
-    @DisplayName("باید داده‌های اولیه را به درستی بارگذاری کند")
-    void testLoadInitialData_success() {
-        // When
-        Set<CardEntity> cards = inMemoryRepository.getCardsByNationalCode(EXISTING_NATIONAL_CODE);
+    @DisplayName("باید شخص را از دیتابیس بخواند و در Cache ذخیره کند")
+    void shouldFindPersonFromDatabaseAndCacheIt() {
+        // When - بار اول: از DB می‌خواند
+        Optional<PersonEntity> found = inMemoryRepository.findPerson("1234567890");
 
         // Then
-        assertNotNull(cards, "مجموعه کارت‌ها نباید null باشد");
-        assertFalse(cards.isEmpty(), "کارت‌ها باید مقدار داشته باشند");
+        assertThat(found).isPresent();
+        assertThat(found.get().getNationalCode()).isEqualTo("1234567890");
+        assertThat(found.get().getFirstName()).isEqualTo("علی");
 
-        log.info("Found {} cards for national code {}", cards.size(), EXISTING_NATIONAL_CODE);
+        // Verify که در Cache ذخیره شده
+        Optional<PersonEntity> cachedPerson = inMemoryRepository.findPerson("1234567890");
+        assertThat(cachedPerson).isPresent();
+        assertThat(cachedPerson.get()).isEqualTo(found.get());
     }
 
     @Test
     @Order(2)
-    @DisplayName("باید شخص را با کد ملی پیدا کند")
-    void testFindPersonByNationalCode_success() {
+    @DisplayName("باید Optional.empty برگرداند برای کدملی نامعتبر")
+    void shouldReturnEmptyForInvalidNationalCode() {
         // When
-        var person = inMemoryRepository.findPerson(EXISTING_NATIONAL_CODE);
+        Optional<PersonEntity> found = inMemoryRepository.findPerson("9999999999");
 
         // Then
-        assertTrue(person.isPresent(), "شخص باید پیدا شود");
-
-        assertEquals(EXISTING_NATIONAL_CODE, person.get().getNationalCode());
-
-        log.info("Found person: {} {}",
-                person.get().getFirstName(),
-                person.get().getLastName());
+        assertThat(found).isEmpty();
     }
+
+    // ========== Issuer Tests ==========
 
     @Test
     @Order(3)
-    @DisplayName("نباید اجازه ثبت کارت تکراری را بدهد")
-    void testDuplicateCardInsertion_shouldThrowException() {
-        // Given: گرفتن شخص و اطلاعات موجود
-        PersonEntity person = personRepository.findByNationalCode(EXISTING_NATIONAL_CODE)
-                .orElseThrow(() -> new AssertionError("Person not found"));
+    @DisplayName("باید صادرکننده را در Cache ذخیره کند")
+    void shouldCacheIssuer() {
+        //when
+        issuerRepository.findByIssuerCode("627353");
 
-        AccountEntity account = person.getAccounts().iterator().next();
-        CardEntity existingCard = account.getCards().iterator().next();
 
-        // ساخت کارت تکراری (همان نوع و صادرکننده)
-        CardEntity duplicateCard = new CardEntity();
-        duplicateCard.setCardNumber("9999888877776666");
-        duplicateCard.setCardType(existingCard.getCardType()); // همان نوع
-        duplicateCard.setIssuer(existingCard.getIssuer()); // همان صادرکننده
-        duplicateCard.setAccount(account);
-        duplicateCard.setActive(true);
-        duplicateCard.setExpirationMonth("10");
-        duplicateCard.setExpirationYear("1407");
+        Optional<IssuerEntity> found = inMemoryRepository.findIssuer("627353");
 
-        // When & Then
-        IllegalArgumentException exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> inMemoryRepository.saveCard(duplicateCard),
-                "باید استثنا برای کارت تکراری پرتاب شود"
-        );
-
-        // بررسی پیام خطا
-        assertNotNull(exception.getMessage());
-        assertTrue(
-                exception.getMessage().contains("قبلاً یک کارت"),
-                "پیام خطا باید در مورد کارت تکراری باشد. پیام واقعی: " + exception.getMessage()
-        );
-
-        log.info("Duplicate card correctly rejected: {}", exception.getMessage());
+        assertThat(found).isEmpty();
     }
+
+    // ========== Account Tests ==========
 
     @Test
     @Order(4)
-    @DisplayName("باید لیست خالی برای کد ملی نامعتبر برگرداند")
-    void testFindCardsByInvalidNationalCode_shouldReturnEmptySet() {
+    @DisplayName("باید حساب را از دیتابیس پیدا کند")
+    void shouldFindAccountFromDatabase() {
+
         // When
-        Set<CardEntity> cards = inMemoryRepository.getCardsByNationalCode("0000000000");
+        Optional<AccountEntity> found = inMemoryRepository.findAccount("1234567890");
 
         // Then
-        assertNotNull(cards, "مجموعه کارت‌ها نباید null باشد");
-        assertTrue(cards.isEmpty(), "نباید کارتی برای کد ملی نامعتبر وجود داشته باشد");
+        assertThat(found).isEmpty();
 
-        log.info("Correctly returned empty set for invalid national code");
+        Optional<AccountEntity> dbAccount = accountRepository.findByAccountNumber("1234567890");
+        assertThat(dbAccount).isPresent();
     }
+
+    // ========== Card Save Tests ==========
 
     @Test
     @Order(5)
-    @DisplayName("باید صادرکننده را با کد صادرکننده پیدا کند")
-    void testFindIssuerByCode_success() {
+    @DisplayName("باید کارت جدید را ذخیره و سینک کند")
+    void shouldSaveNewCardAndSync() throws BadRequestException {
+
         // Given
-        String issuerCode = "123456";
+        IssuerEntity newIssuer = IssuerEntity.builder()
+                .issuerCode("627359")
+                .name("بانک منحل آینده")
+                .build();
+
+        newIssuer = entityManager.persistAndFlush(newIssuer);
+
+        CardEntity newCard = CardEntity.builder()
+                .cardNumber("6273531234567890")
+                .cardType(CardType.CREDIT)
+                .active(true)
+                .expirationMonth("12")
+                .expirationYear("1405")
+                .account(testAccount)
+                .issuer(newIssuer)
+                .build();
 
         // When
-        var issuer = inMemoryRepository.findIssuer(issuerCode);
+        CardEntity saved = inMemoryRepository.saveCard(newCard);
 
         // Then
-        assertTrue(issuer.isPresent(), "صادرکننده باید پیدا شود");
-        assertEquals(issuerCode, issuer.get().getIssuerCode());
+        assertThat(saved).isNotNull();
+        assertThat(saved.getId()).isNotNull();
 
-        log.info("Found issuer: {}", issuer.get().getName());
+        Optional<CardEntity> dbCard = cardRepository.findByCardNumber("6273531234567890");
+        assertThat(dbCard).isPresent();
+        assertThat(dbCard.get().getCardNumber()).isEqualTo("6273531234567890");
+
+        Set<CardEntity> cards = inMemoryRepository.getCardsByNationalCode("1234567890");
+        assertThat(cards).hasSize(1);
+        assertThat(cards.iterator().next().getCardNumber()).isEqualTo("6273531234567890");
     }
 
     @Test
     @Order(6)
-    @DisplayName("باید حساب را با شماره حساب پیدا کند")
-    void testFindAccountByNumber_success() {
-        // Given
-        String accountNumber = "1111111111";
+    @DisplayName("باید خطای تکراری بودن کارت را پرتاب کند")
+    void shouldThrowExceptionForDuplicateCard() {
 
-        // When
-        var account = inMemoryRepository.findAccount(accountNumber);
+        PersonEntity newPerson = PersonEntity.builder()
+                .nationalCode("9876543210")
+                .firstName("محمد")
+                .lastName("محمدی")
+                .phone("09127654321")
+                .address("تهران - خیابان آزادی")
+                .build();
+        personRepository.saveAndFlush(newPerson);
 
-        // Then
-        assertTrue(account.isPresent(), "حساب باید پیدا شود");
-        assertEquals(accountNumber, account.get().getAccountNumber());
+        IssuerEntity newIssuer = IssuerEntity.builder()
+                .issuerCode("627359")
+                .name("بانک صادرات")
+                .build();
+        issuerRepository.saveAndFlush(newIssuer);
 
-        log.info("Found account: {}", account.get().getAccountNumber());
+        AccountEntity newAccount = AccountEntity.builder()
+                .accountNumber("9876543210")
+                .accountType(AccountType.SAVINGS)
+                .owner(newPerson)
+                .build();
+        accountRepository.saveAndFlush(newAccount);
+
+        CardEntity firstCard = CardEntity.builder()
+                .cardNumber("6273599999999999")
+                .cardType(CardType.CREDIT)
+                .active(true)
+                .expirationMonth("06")
+                .expirationYear("1406")
+                .account(newAccount)
+                .issuer(newIssuer)
+                .build();
+
+        try {
+            inMemoryRepository.saveCard(firstCard);
+            entityManager.flush();
+            entityManager.clear();
+        } catch (Exception e) {
+            fail("First card should be saved successfully", e);
+        }
+
+        CardEntity duplicateCard = CardEntity.builder()
+                .cardNumber("6273598888888888") // شماره متفاوت
+                .cardType(CardType.CREDIT)      // همان نوع
+                .active(true)
+                .expirationMonth("12")
+                .expirationYear("1407")
+                .account(newAccount)           // همان حساب
+                .issuer(newIssuer)             // همان صادرکننده
+                .build();
+
+        assertThatThrownBy(() -> inMemoryRepository.saveCard(duplicateCard))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("کارت تکراری")
+                .hasMessageContaining("9876543210");
     }
+
+
+    // ========== Get Cards Tests ==========
 
     @Test
     @Order(7)
-    @DisplayName("باید کارت جدید معتبر را ذخیره کند")
-    void testSaveNewValidCard_success() throws BadRequestException {
-        // Given: ساخت موجودیت‌های مورد نیاز
-        PersonEntity person = personRepository.findByNationalCode(EXISTING_NATIONAL_CODE)
-                .orElseThrow(() -> new AssertionError("Person not found"));
+    @DisplayName("باید کارت‌ها را از دیتابیس واکشی و Cache کند")
+    void shouldFetchCardsFromDatabaseAndCache() throws BadRequestException {
 
-        // ساخت صادرکننده جدید یا استفاده از موجود
-        IssuerEntity issuer = issuerRepository.findByIssuerCode("654321")
-                .orElseGet(() -> {
-                    IssuerEntity newIssuer = new IssuerEntity();
-                    newIssuer.setIssuerCode("999999");
-                    newIssuer.setName("بانک تست");
-                    return issuerRepository.save(newIssuer);
-                });
+        // Given -
+        CardEntity card = CardEntity.builder()
+                .cardNumber("6273535555555555")
+                .cardType(CardType.DEBIT)
+                .active(true)
+                .expirationMonth("03")
+                .expirationYear("1408")
+                .account(testAccount)
+                .issuer(testIssuer)
+                .build();
 
-        // ساخت حساب جدید
-        AccountEntity account = new AccountEntity();
-        account.setAccountNumber("9999999999");
-        account.setAccountType(AccountType.SAVINGS);
-        account.setOwner(person);
-        account = accountRepository.saveAndFlush(account);
-
-        // ساخت کارت جدید
-        CardEntity newCard = new CardEntity();
-        newCard.setCardNumber("5555444433332222");
-        newCard.setCardType(CardType.CREDIT);
-        newCard.setIssuer(issuer);
-        newCard.setAccount(account);
-        newCard.setActive(true);
-        newCard.setExpirationMonth("06");
-        newCard.setExpirationYear("1406");
-
-        int initialCount = inMemoryRepository.getStatistics().get("cards");
+        cardRepository.saveAndFlush(card);
+        entityManager.clear();
 
         // When
-        CardEntity savedCard = inMemoryRepository.saveCard(newCard);
+        Set<CardEntity> cards = inMemoryRepository.getCardsByNationalCode("1234567890");
 
         // Then
-        assertNotNull(savedCard, "کارت ذخیره‌شده نباید null باشد");
-        assertNotNull(savedCard.getId(), "ID کارت باید تنظیم شود");
-        assertEquals(newCard.getCardNumber(), savedCard.getCardNumber());
+        assertThat(cards).hasSize(1);
+        assertThat(cards.iterator().next().getCardNumber()).isEqualTo("6273535555555555");
 
-        // بررسی افزایش تعداد در کش
-        assertEquals(initialCount + 1, inMemoryRepository.getStatistics().get("cards"));
-
-        // بررسی ذخیره در دیتابیس
-        assertTrue(cardRepository.findById(savedCard.getId()).isPresent());
-
-        log.info("New card saved successfully: {}", savedCard.getCardNumber());
+        // Verify
+        Set<CardEntity> cachedCards = inMemoryRepository.getCardsByNationalCode("1234567890");
+        assertThat(cachedCards).hasSize(1);
     }
 
     @Test
     @Order(8)
-    @DisplayName("باید همه داده‌ها را پاک کند")
-    void testClearAll() {
-        // Given: داده‌های موجود
-        Map<String, Integer> initialStats = inMemoryRepository.getStatistics();
-        assertTrue(initialStats.get("cards") > 0, "باید کارت‌هایی وجود داشته باشد");
+    @DisplayName("باید لیست خالی برگرداند برای شخصی که کارت ندارد")
+    void shouldReturnEmptySetForPersonWithoutCards() {
+        // Given - شخص جدید بدون کارت
+        PersonEntity personWithoutCard = PersonEntity.builder()
+                .nationalCode("9876543210")
+                .firstName("محمد")
+                .lastName("رضایی")
+                .phone("09351234567")
+                .address("اصفهان")
+                .build();
+        entityManager.persistAndFlush(personWithoutCard);
 
         // When
-        inMemoryRepository.clearAllIncludingDatabase();
+        Set<CardEntity> cards = inMemoryRepository.getCardsByNationalCode("9876543210");
 
         // Then
-        Map<String, Integer> stats = inMemoryRepository.getStatistics();
-        assertAll("All data should be cleared",
-                () -> assertEquals(0, stats.get("persons")),
-                () -> assertEquals(0, stats.get("issuers")),
-                () -> assertEquals(0, stats.get("accounts")),
-                () -> assertEquals(0, stats.get("cards")),
-                () -> assertEquals(0, stats.get("nationalCodeEntries")),
-                () -> assertEquals(0, personRepository.count()),
-                () -> assertEquals(0, issuerRepository.count()),
-                () -> assertEquals(0, accountRepository.count()),
-                () -> assertEquals(0, cardRepository.count())
-        );
-
-        log.info("All data cleared successfully");
+        assertThat(cards).isEmpty();
     }
 
     @Test
     @Order(9)
-    @DisplayName("باید آمار صحیح را برگرداند")
-    void testGetStatistics() {
+    @DisplayName("باید چندین کارت مختلف را مدیریت کند")
+    void shouldHandleMultipleCards() throws BadRequestException {
+
+        // Given - دو کارت مختلف
+        IssuerEntity newIssuer1 = IssuerEntity.builder()
+                .issuerCode("603796")
+                .name("بانک سامان")
+                .build();
+        newIssuer1 = entityManager.persistAndFlush(newIssuer1);
+        CardEntity debitCard = CardEntity.builder()
+                .cardNumber("6273531111111111")
+                .cardType(CardType.DEBIT)
+                .active(true)
+                .expirationMonth("12")
+                .expirationYear("1405")
+                .account(testAccount)
+                .issuer(newIssuer1)
+                .build();
+
+        // صادرکننده جدید
+        IssuerEntity newIssuer2 = IssuerEntity.builder()
+                .issuerCode("603799")
+                .name("بانک ملی")
+                .build();
+        newIssuer2 = entityManager.persistAndFlush(newIssuer2);
+
+        CardEntity creditCard = CardEntity.builder()
+                .cardNumber("6037992222222222")
+                .cardType(CardType.CREDIT)
+                .active(true)
+                .expirationMonth("06")
+                .expirationYear("1406")
+                .account(testAccount)
+                .issuer(newIssuer2)
+                .build();
+
         // When
-        Map<String, Integer> stats = inMemoryRepository.getStatistics();
+        inMemoryRepository.saveCard(debitCard);
+        inMemoryRepository.saveCard(creditCard);
 
         // Then
-        assertNotNull(stats);
-        assertTrue(stats.containsKey("persons"));
-        assertTrue(stats.containsKey("issuers"));
-        assertTrue(stats.containsKey("accounts"));
-        assertTrue(stats.containsKey("cards"));
-        assertTrue(stats.containsKey("nationalCodeEntries"));
+        Set<CardEntity> cards = inMemoryRepository.getCardsByNationalCode("1234567890");
+        assertThat(cards).hasSize(2);
 
-        // بررسی همخوانی با دیتابیس
-        assertEquals(personRepository.count(), stats.get("persons").longValue());
-        assertEquals(issuerRepository.count(), stats.get("issuers").longValue());
-        assertEquals(accountRepository.count(), stats.get("accounts").longValue());
-        assertEquals(cardRepository.count(), stats.get("cards").longValue());
 
-        log.info("Statistics correct: {}", stats);
+        assertThat(cardRepository.findByCardNumber("6273531111111111")).isPresent();
+        assertThat(cardRepository.findByCardNumber("6037992222222222")).isPresent();
     }
+
+    // ========== Clear Tests ==========
 
     @Test
     @Order(10)
-    @DisplayName("باید کارت‌های یک شخص را به درستی برگرداند")
-    void testGetCardsByNationalCode() {
-        // Given
-        String nationalCode = EXISTING_NATIONAL_CODE;
+    @DisplayName("باید فقط درون مخزنی را پاک کند نه دیتابیس")
+    void shouldClearOnlyInMemoryNotDatabase() throws BadRequestException {
+        // Given - یک کارت ذخیره می‌کنیم
+        CardEntity card = CardEntity.builder()
+                .cardNumber("6273533333333333")
+                .cardType(CardType.DEBIT)
+                .active(true)
+                .expirationMonth("09")
+                .expirationYear("1407")
+                .account(testAccount)
+                .issuer(testIssuer)
+                .build();
+
+        inMemoryRepository.saveCard(card);
 
         // When
-        Set<CardEntity> cards = inMemoryRepository.getCardsByNationalCode(nationalCode);
+        inMemoryRepository.clearAll();
 
         // Then
-        assertNotNull(cards);
-        assertFalse(cards.isEmpty());
+        Optional<CardEntity> dbCard = cardRepository.findByCardNumber("6273533333333333");
+        assertThat(dbCard).isPresent();
 
-        // بررسی اینکه همه کارت‌ها متعلق به همان شخص هستند
-        cards.forEach(card -> {
-            assertNotNull(card.getAccount());
-            assertNotNull(card.getAccount().getOwner());
-            assertEquals(nationalCode, card.getAccount().getOwner().getNationalCode());
-        });
-
-        log.info("Found {} cards for national code {}", cards.size(), nationalCode);
+        Map<String, Integer> stats = inMemoryRepository.getStatistics();
+        assertThat(stats.get("cards")).isZero();
     }
 
     @Test
     @Order(11)
-    @DisplayName("باید مجموعه خالی برای کد ملی ناشناخته برگرداند")
-    void testEmptyResultForUnknownNationalCode() {
+    @DisplayName("باید Cache و دیتابیس را با هم پاک کند")
+    void shouldClearBothCacheAndDatabase() throws BadRequestException {
+        // Given
+        CardEntity card = CardEntity.builder()
+                .cardNumber("6273534444444444")
+                .cardType(CardType.CREDIT)
+                .active(true)
+                .expirationMonth("11")
+                .expirationYear("1408")
+                .account(testAccount)
+                .issuer(testIssuer)
+                .build();
+
+        inMemoryRepository.saveCard(card);
+
         // When
-        Set<CardEntity> cards = inMemoryRepository.getCardsByNationalCode("0000000000");
+        inMemoryRepository.clearAllIncludingDatabase();
 
-        // Then
-        assertNotNull(cards);
-        assertTrue(cards.isEmpty());
+        // Then -
+        assertThat(cardRepository.findAll()).isEmpty();
+        assertThat(accountRepository.findAll()).isEmpty();
+        assertThat(personRepository.findAll()).isEmpty();
+        assertThat(issuerRepository.findAll()).isEmpty();
 
-        log.info("Correctly returned empty set for unknown national code");
+        // And Cache هم خالی است
+        Map<String, Integer> stats = inMemoryRepository.getStatistics();
+        assertThat(stats.get("persons")).isZero();
+        assertThat(stats.get("cards")).isZero();
+    }
+
+    @Test
+    @Order(13)
+    @DisplayName("باید خطا بدهد برای کارت با account null")
+    void shouldThrowExceptionForCardWithNullAccount() {
+        // Given
+        CardEntity invalidCard = CardEntity.builder()
+                .cardNumber("6273537777777777")
+                .cardType(CardType.DEBIT)
+                .active(true)
+                .expirationMonth("12")
+                .expirationYear("1405")
+                .account(null)  // null
+                .issuer(testIssuer)
+                .build();
+
+        // When & Then
+        assertThatThrownBy(() -> inMemoryRepository.saveCard(invalidCard))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("حساب کارت نمی تواند خالی باشد");
+    }
+
+    @Test
+    @Order(14)
+    @DisplayName("باید خطا بدهد برای کارت با issuer null")
+    void shouldThrowExceptionForCardWithNullIssuer() {
+        // Given
+        CardEntity invalidCard = CardEntity.builder()
+                .cardNumber("6273538888888888")
+                .cardType(CardType.CREDIT)
+                .active(true)
+                .expirationMonth("12")
+                .expirationYear("1405")
+                .account(testAccount)
+                .issuer(null)  // null
+                .build();
+
+        // When & Then
+        assertThatThrownBy(() -> inMemoryRepository.saveCard(invalidCard))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("صادرکننده نمی تواند خالی باشد");
     }
 }

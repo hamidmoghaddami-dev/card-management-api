@@ -3,7 +3,7 @@ package com.isc.cardManagement.service;
 import com.isc.cardManagement.dto.CardDto;
 import com.isc.cardManagement.dto.CardResponseDto;
 import com.isc.cardManagement.dto.CreateCardRequestDto;
-import org.apache.coyote.BadRequestException;
+import com.isc.cardManagement.exception.BadRequestException;
 
 import java.util.List;
 

@@ -6,16 +6,14 @@ import com.isc.cardManagement.entity.IssuerEntity;
 import com.isc.cardManagement.entity.PersonEntity;
 import com.isc.cardManagement.enums.AccountType;
 import com.isc.cardManagement.enums.CardType;
+import com.isc.cardManagement.exception.BadRequestException;
 import com.isc.cardManagement.repository.jpa.AccountRepository;
 import com.isc.cardManagement.repository.jpa.CardRepository;
 import com.isc.cardManagement.repository.jpa.IssuerRepository;
 import com.isc.cardManagement.repository.jpa.PersonRepository;
 import jakarta.annotation.PostConstruct;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.coyote.BadRequestException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.DependsOn;
 import org.springframework.core.io.ClassPathResource;
@@ -35,9 +33,6 @@ import java.util.stream.Collectors;
 @DependsOn("entityManagerFactory")
 public class InMemoryRepository {
 
-
-    @PersistenceContext
-    private EntityManager entityManager;
 
     private final Map<String, PersonEntity> personMap = new ConcurrentHashMap<>();
 
@@ -83,7 +78,22 @@ public class InMemoryRepository {
 
 
     public Optional<PersonEntity> findPerson(String nationalCode) {
-        return Optional.ofNullable(personMap.get(nationalCode));
+        PersonEntity cached = personMap.get(nationalCode);
+
+        if (cached != null) {
+            log.debug("Person found in cache: {}", nationalCode);
+            return Optional.of(cached);
+        }
+
+        log.debug("Person not in cache, fetching from DB: {}", nationalCode);
+        Optional<PersonEntity> fromDb = personRepository.findByNationalCode(nationalCode);
+
+        fromDb.ifPresent(person -> {
+            personMap.put(nationalCode, person);
+            log.debug("Person cached: {}", nationalCode);
+        });
+
+        return fromDb;
     }
 
     public List<CardEntity> findCardsByNationalCode(String nationalCode) {
@@ -341,7 +351,7 @@ public class InMemoryRepository {
         Set<CardEntity> cachedCards = nationalCodeCardsMap.get(nationalCode);
 
         if (cachedCards != null && !cachedCards.isEmpty()) {
-            log.debug("📦 Cache hit: {} card(s) for {}", cachedCards.size(), nationalCode);
+            log.debug("Cache hit: {} card(s) for {}", cachedCards.size(), nationalCode);
             return new HashSet<>(cachedCards);
         }
 
