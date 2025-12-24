@@ -1,14 +1,14 @@
 package com.isc.cardManagement.mapper;
 
 import com.isc.cardManagement.dto.CardDto;
-import com.isc.cardManagement.entity.AccountEntity;
 import com.isc.cardManagement.entity.CardEntity;
-import com.isc.cardManagement.entity.IssuerEntity;
+import org.springframework.stereotype.Component;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Component
 public class CardMapper {
 
     public static CardEntity toEntity(CardDto dto) {
@@ -45,8 +45,11 @@ public class CardMapper {
                 .collect(Collectors.toList());
     }
 
-    public static List<CardEntity> toEntityList(List<CardDto> dtos, AccountEntity account, IssuerEntity issuer) {
-        if (dtos == null) return Collections.emptyList();
+    public static List<CardEntity> toEntityList(List<CardDto> dtos) {
+
+        if (dtos == null) {
+            return Collections.emptyList();
+        }
 
         return dtos.stream()
                 .map(CardMapper::toEntity)

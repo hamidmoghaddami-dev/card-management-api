@@ -1,8 +1,6 @@
 package com.isc.cardManagement.service;
 
-import com.isc.cardManagement.dto.CardDto;
-import com.isc.cardManagement.dto.CardResponseDto;
-import com.isc.cardManagement.dto.CreateCardRequestDto;
+import com.isc.cardManagement.dto.*;
 import com.isc.cardManagement.entity.AccountEntity;
 import com.isc.cardManagement.entity.CardEntity;
 import com.isc.cardManagement.entity.IssuerEntity;
@@ -16,6 +14,10 @@ import com.isc.cardManagement.repository.jpa.CardRepository;
 import com.isc.cardManagement.repository.jpa.IssuerRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -97,6 +99,50 @@ public class CardServiceImpl implements CardService {
 
         return CardMapper.toDto(saved);
     }
+
+
+    @Override
+    public PagedResponseDto<CardResponseDto> searchCards(CardSearchDto searchDto) {
+        log.debug("Searching cards with criteria: {}", searchDto);
+
+        // ساخت Pageable از DTO
+        Pageable pageable = buildPageable(searchDto);
+
+        Page<CardEntity> cardPage = cardRepository.searchCards(
+                searchDto.getNationalCode(),
+                searchDto.getCardNumber(),
+                searchDto.getIssuerCode(),
+                searchDto.getCardType(),
+                searchDto.getActive(),
+                searchDto.getAccountNumber(),
+                pageable
+        );
+
+        List<CardResponseDto> cardDtos = cardPage.getContent().stream()
+                .map(CardResponseDto::fromEntity)
+                .toList();
+
+        return PagedResponseDto.<CardResponseDto>builder()
+                .content(cardDtos)
+                .pageNumber(cardPage.getNumber())
+                .pageSize(cardPage.getSize())
+                .totalElements(cardPage.getTotalElements())
+                .totalPages(cardPage.getTotalPages())
+                .last(cardPage.isLast())
+                .build();
+    }
+
+private Pageable buildPageable(CardSearchDto searchDto) {
+    if (searchDto.getPage() != null && searchDto.getSize() != null) {
+        String sortBy = searchDto.getSortBy() != null ? searchDto.getSortBy() : "cardNumber";
+        Sort.Direction direction = "DESC".equalsIgnoreCase(searchDto.getSortDirection())
+                ? Sort.Direction.DESC
+                : Sort.Direction.ASC;
+
+        return PageRequest.of(searchDto.getPage(), searchDto.getSize(), Sort.by(direction, sortBy));
+    }
+    return Pageable.unpaged();
+}
 
 }
 
