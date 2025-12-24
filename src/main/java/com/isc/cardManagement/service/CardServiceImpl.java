@@ -67,8 +67,7 @@ public class CardServiceImpl implements CardService {
 
         if (duplicateInCache) {
             throw new BusinessException(
-                    String.format("شماره کارت تکراری: %s", dto.getCardDto().getCardNumber())
-            );
+                    String.format("شماره کارت تکراری: %s", dto.getCardDto().getCardNumber()));
         }
 
         AccountEntity account = accountRepository

@@ -7,6 +7,7 @@ import com.isc.cardManagement.entity.PersonEntity;
 import com.isc.cardManagement.enums.AccountType;
 import com.isc.cardManagement.enums.CardType;
 import com.isc.cardManagement.exception.BadRequestException;
+import com.isc.cardManagement.exception.BusinessException;
 import com.isc.cardManagement.repository.jpa.AccountRepository;
 import com.isc.cardManagement.repository.jpa.CardRepository;
 import com.isc.cardManagement.repository.jpa.IssuerRepository;
@@ -15,7 +16,6 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.DependsOn;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @Repository
 @RequiredArgsConstructor
-@DependsOn("entityManagerFactory")
+//@DependsOn("entityManagerFactory")
 public class InMemoryRepository {
 
 
@@ -153,7 +153,7 @@ public class InMemoryRepository {
 
         } catch (Exception e) {
             log.error("Failed to load data from file", e);
-            throw new RuntimeException("Failed to load initial data", e);
+            throw new BusinessException("Failed to load initial data", e);
         }
     }
 
@@ -310,12 +310,10 @@ public class InMemoryRepository {
 
         nationalCodeCardsMap.forEach((nationalCode, cards) -> {
             log.info("   {} has {} card(s)", nationalCode, cards.size());
-            cards.forEach(card -> {
-                log.info("     - {} {} from {}",
-                        card.getCardType(),
-                        card.getCardNumber(),
-                        card.getIssuer().getIssuerCode());
-            });
+            cards.forEach(card -> log.info("     - {} {} from {}",
+                    card.getCardType(),
+                    card.getCardNumber(),
+                    card.getIssuer().getIssuerCode()));
         });
 
         log.info("═══════════════════════════════════════");
@@ -471,17 +469,6 @@ public class InMemoryRepository {
         issuer.setIssuerCode(tokens[0].trim());
         issuer.setName(tokens[1].trim());
         return issuer;
-    }
-
-
-    private void saveCardInMemory(CardEntity card) {
-        String nationalCode = card.getAccount().getOwner().getNationalCode();
-
-        cardMap.put(card.getCardNumber(), card);
-        nationalCodeCardsMap.computeIfAbsent(nationalCode, k -> new HashSet<>()).add(card);
-
-        log.debug("Card registered in memory: {} for person {}",
-                card.getCardNumber(), nationalCode);
     }
 
 
