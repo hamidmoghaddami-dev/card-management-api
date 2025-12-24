@@ -132,17 +132,17 @@ public class CardServiceImpl implements CardService {
                 .build();
     }
 
-private Pageable buildPageable(CardSearchDto searchDto) {
-    if (searchDto.getPage() != null && searchDto.getSize() != null) {
-        String sortBy = searchDto.getSortBy() != null ? searchDto.getSortBy() : "cardNumber";
-        Sort.Direction direction = "DESC".equalsIgnoreCase(searchDto.getSortDirection())
-                ? Sort.Direction.DESC
-                : Sort.Direction.ASC;
+    private Pageable buildPageable(CardSearchDto searchDto) {
+        if (searchDto.getPage() != null && searchDto.getSize() != null) {
+            String sortBy = searchDto.getSortBy() != null ? searchDto.getSortBy() : "cardNumber";
+            Sort.Direction direction = "DESC".equalsIgnoreCase(searchDto.getSortDirection())
+                    ? Sort.Direction.DESC
+                    : Sort.Direction.ASC;
 
-        return PageRequest.of(searchDto.getPage(), searchDto.getSize(), Sort.by(direction, sortBy));
+            return PageRequest.of(searchDto.getPage(), searchDto.getSize(), Sort.by(direction, sortBy));
+        }
+        return Pageable.unpaged();
     }
-    return Pageable.unpaged();
-}
 
 }
 
