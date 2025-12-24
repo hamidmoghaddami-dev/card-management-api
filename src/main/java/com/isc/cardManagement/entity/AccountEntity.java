@@ -45,17 +45,6 @@ public class AccountEntity {
     @OneToMany(mappedBy = "account", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<CardEntity> cards = new HashSet<>();
 
-
-    public void addCard(CardEntity card) {
-        cards.add(card);
-        card.setAccount(this);
-    }
-
-    public void removeCard(CardEntity card) {
-        cards.remove(card);
-        card.setAccount(null);
-    }
-
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
