@@ -1,8 +1,6 @@
 package com.isc.cardManagement.controller;
 
-import com.isc.cardManagement.dto.CardDto;
-import com.isc.cardManagement.dto.CardResponseDto;
-import com.isc.cardManagement.dto.CreateCardRequestDto;
+import com.isc.cardManagement.dto.*;
 import com.isc.cardManagement.exception.BadRequestException;
 import com.isc.cardManagement.service.CardService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -62,6 +60,22 @@ public class CardController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(created);
+    }
+
+
+    @PostMapping("/search")
+    @Operation(summary = "جستجوی پیشرفته کارت ها",
+            description = "جستجو با فیلترهای مختلف و امکان صفحه بندی اختیاری")
+    public ResponseEntity<PagedResponseDto<CardResponseDto>> searchCards(
+            @Valid @RequestBody CardSearchDto searchDto
+    ) {
+        log.info("Search request received: {}", searchDto);
+
+        PagedResponseDto<CardResponseDto> result = cardService.searchCards(searchDto);
+
+        log.info("Search completed - found {} card(s)", result.getContent().size());
+
+        return ResponseEntity.ok(result);
     }
 
 }
