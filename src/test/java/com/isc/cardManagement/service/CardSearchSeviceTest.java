@@ -103,7 +103,7 @@ class CardSearchServiceImplTest {
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).getCardNumber()).isEqualTo("6273531234567890");
         assertThat(result.getTotalElements()).isEqualTo(1);
-        assertThat(result.getPageNumber()).isEqualTo(0);
+        assertThat(result.getPageNumber()).isZero();
 
         verify(cardRepository).searchCards(
                 eq("1234567890"),
@@ -112,7 +112,7 @@ class CardSearchServiceImplTest {
                 isNull(),
                 isNull(),
                 isNull(),
-                argThat(pageable -> pageable.isUnpaged())
+                argThat(Pageable::isUnpaged)
         );
     }
 
@@ -179,7 +179,7 @@ class CardSearchServiceImplTest {
 
         // Then
         assertThat(result).isNotNull();
-        assertThat(result.getPageNumber()).isEqualTo(0);
+        assertThat(result.getPageNumber()).isZero();
         assertThat(result.getPageSize()).isEqualTo(10);
         assertThat(result.getTotalPages()).isEqualTo(1);
         assertThat(result.isLast()).isTrue();
