@@ -54,13 +54,6 @@ public class InMemoryRepository {
     private String dataFilePath;
 
 
-    private AccountEntity findAccountByNationalCode(String nationalCode) {
-        PersonEntity person = personMap.get(nationalCode);
-        if (person == null) throw new IllegalArgumentException("شخص یافت نشد: " + nationalCode);
-        return person.getAccounts().stream().findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("حساب برای شخص یافت نشد: " + nationalCode));
-    }
-
     @Transactional
     public void clearAllIncludingDatabase() {
 
@@ -94,12 +87,6 @@ public class InMemoryRepository {
         });
 
         return fromDb;
-    }
-
-    public List<CardEntity> findCardsByNationalCode(String nationalCode) {
-        return nationalCodeCardsMap.getOrDefault(nationalCode, Collections.emptySet())
-                .stream()
-                .toList();
     }
 
 
@@ -279,17 +266,6 @@ public class InMemoryRepository {
         }
     }
 
-
-    private void saveCardToMaps(CardEntity card, String nationalCode, String cardTypeStr, String issuerCode) {
-        String uniqueKey = buildUniqueCardKey(nationalCode, cardTypeStr, issuerCode);
-
-        cardMap.put(card.getCardNumber(), card);
-        uniqueCardConstraintMap.put(uniqueKey, card);
-
-        nationalCodeCardsMap
-                .computeIfAbsent(nationalCode, k -> ConcurrentHashMap.newKeySet())
-                .add(card);
-    }
 
     private String buildUniqueCardKey(String nationalCode, String cardType, String issuerCode) {
         return String.format("%s_%s_%s", nationalCode, cardType, issuerCode);
