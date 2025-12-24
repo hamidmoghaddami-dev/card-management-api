@@ -30,7 +30,6 @@ import java.util.stream.Collectors;
 @Slf4j
 @Repository
 @RequiredArgsConstructor
-//@DependsOn("entityManagerFactory")
 public class InMemoryRepository {
 
 
