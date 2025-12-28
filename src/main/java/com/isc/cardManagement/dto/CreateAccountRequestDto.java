@@ -11,7 +11,7 @@ import lombok.*;
 @Builder
 public class CreateAccountRequestDto {
 
-        @NotBlank(message = "{account.number.invalid}")
+        @NotBlank(message = "account.number.invalid")
         @Size(min = 10, max = 10, message = "{account.number.invalid}")
         @Pattern(regexp = "\\d+", message = "{account.number.invalid}")
         private String accountNumber;

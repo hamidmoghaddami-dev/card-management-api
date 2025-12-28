@@ -50,7 +50,7 @@ class CreateCardServiceTest {
     @InjectMocks
     private CardServiceImpl cardService;
 
-    private CreateCardRequestDto validRequest;
+    private CardDto validRequest;
     private AccountEntity mockAccount;
     private IssuerEntity mockIssuer;
     private CardEntity mockCard;
@@ -104,15 +104,7 @@ class CreateCardServiceTest {
                 .accountNumber("1234567890")
                 .build();
 
-        IssuerDto issuerDto = IssuerDto.builder()
-                .issuerCode("603799")
-                .name("بانک ملی")
-                .build();
-
-        validRequest = CreateCardRequestDto.builder()
-                .cardDto(cardDto)
-                .issuerDto(issuerDto)
-                .build();
+        validRequest = cardDto;
     }
 
     @Test

@@ -11,9 +11,9 @@ import lombok.*;
 @Builder
 public class CardDto {
 
-    @NotBlank(message = "card.number.invalid")
-    @Size(min = 16, max = 16, message = "{card.number.invalid}")
-    @Pattern(regexp = "\\d+", message = "{card.number.invalid}")
+    @NotBlank(message = "{card.number.can.not.be.null}")
+    @Size(min = 16, max = 16, message = "card.number.invalid")
+    @Pattern(regexp = "\\d+", message = "card.number.invalid")
     private String cardNumber;
 
     @NotBlank(message = "expiration.month.invalid")
@@ -28,10 +28,10 @@ public class CardDto {
     @NotNull(message = "card.type.null")
     private CardType cardType;
 
-    @NotNull(message = "issuer.code.invalid")
+    @NotBlank(message = "issuer.code.invalid")
     private String issuerCode;
 
-    @NotNull(message = "account.number.invalid")
+    @NotBlank(message = "account.number.invalid")
     private String accountNumber;
 }
 

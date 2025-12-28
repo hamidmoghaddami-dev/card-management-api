@@ -52,12 +52,12 @@ public class CardServiceImpl implements CardService {
 
     @Override
     @Transactional
-    public CardDto createCard(CreateCardRequestDto dto) throws BadRequestException {
+    public CardDto createCard(CardDto dto) throws BadRequestException {
 
-        log.info("Creating card: {}", dto.getCardDto().getCardNumber());
+        log.info("Creating card: {}", dto.getCardNumber());
 
         String ownerNationalCode = accountRepository
-                .findByAccountNumber(dto.getCardDto().getAccountNumber())
+                .findByAccountNumber(dto.getAccountNumber())
                 .map(acc -> acc.getOwner().getNationalCode())
                 .orElseThrow(() -> new NotFoundException("حساب یافت نشد"));
 
@@ -65,28 +65,28 @@ public class CardServiceImpl implements CardService {
                 .getCardsByNationalCode(ownerNationalCode);
 
         boolean duplicateInCache = existingCards.stream()
-                .anyMatch(card -> card.getCardNumber().equals(dto.getCardDto().getCardNumber()));
+                .anyMatch(card -> card.getCardNumber().equals(dto.getCardNumber()));
 
         if (duplicateInCache) {
             throw new BusinessException(
-                    String.format("شماره کارت تکراری: %s", dto.getCardDto().getCardNumber()));
+                    String.format("شماره کارت تکراری: %s", dto.getCardNumber()));
         }
 
         AccountEntity account = accountRepository
-                .findByAccountNumber(dto.getCardDto().getAccountNumber())
+                .findByAccountNumber(dto.getAccountNumber())
                 .orElseThrow(() -> new NotFoundException("حساب یافت نشد"));
 
         IssuerEntity issuer = issuerRepository
-                .findByIssuerCode(dto.getIssuerDto().getIssuerCode())
+                .findByIssuerCode(dto.getIssuerCode())
                 .orElseThrow(() -> new NotFoundException("صادرکننده یافت نشد"));
 
         CardEntity card = CardEntity.builder()
-                .cardNumber(dto.getCardDto().getCardNumber())
-                .cardType(dto.getCardDto().getCardType())
+                .cardNumber(dto.getCardNumber())
+                .cardType(dto.getCardType())
                 .account(account)
                 .issuer(issuer)
-                .expirationMonth(dto.getCardDto().getExpirationMonth())
-                .expirationYear(dto.getCardDto().getExpirationYear())
+                .expirationMonth(dto.getExpirationMonth())
+                .expirationYear(dto.getExpirationYear())
                 .active(true)
                 .build();
 

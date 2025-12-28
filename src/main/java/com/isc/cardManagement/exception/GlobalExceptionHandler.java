@@ -39,25 +39,69 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     private final MessageSource messageSource;
 
 
-  /*  @ExceptionHandler(MethodArgumentNotValidException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ErrorResponseDTO handleValidationException(MethodArgumentNotValidException ex) {
-        log.error("Validation error occurred", ex);
+    @Override
+    protected ResponseEntity<Object> handleHttpMessageNotReadable(
+            HttpMessageNotReadableException ex,
+            HttpHeaders headers,
+            HttpStatusCode status,
+            WebRequest request) {
 
-        String details = ex.getBindingResult().getFieldErrors().stream()
-                .map(error -> {
-                    String messageKey = error.getDefaultMessage();
-                    String translatedMessage = translateMessage(messageKey);
-                    return error.getField() + ": " + translatedMessage;
-                })
-                .collect(Collectors.joining(", "));
+        log.error("Failed to read request", ex);
 
-        return ErrorResponseDTO.builder()
-                .error("خزای اعتبارسنجی")
+        String details = "فرمت درخواست نامعتبر است";
+
+        if (ex.getCause() instanceof InvalidFormatException) {
+            InvalidFormatException ifx = (InvalidFormatException) ex.getCause();
+            if (!ifx.getPath().isEmpty()) {
+                details = String.format("مقدار نامعتبر برای فیلد '%s': %s",
+                        ifx.getPath().get(0).getFieldName(),
+                        ifx.getValue());
+            }
+        }
+
+        ErrorResponseDTO errorResponse = ErrorResponseDTO.builder()
+                .error("خطای خواندن درخواست")
                 .details(details)
                 .timestamp(LocalDateTime.now())
                 .build();
-    }*/
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(errorResponse);
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleMethodArgumentNotValid(
+            MethodArgumentNotValidException ex,
+            HttpHeaders headers,
+            HttpStatusCode status,
+            WebRequest request) {
+
+        Locale locale = LocaleContextHolder.getLocale();
+
+        String details = ex.getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .map(error -> {
+                    String message = resolveMessage(error.getDefaultMessage(), locale);
+                    return error.getField() + ": " + message;
+                })
+                .collect(Collectors.joining("; "));
+
+        log.warn("Validation error: {}", details);
+
+        ErrorResponseDTO errorResponse = ErrorResponseDTO.builder()
+                .error("خطای اعتبارسنجی")
+                .details(details)
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(errorResponse);
+    }
+
+    // ========== Custom Exception Handlers ==========
 
     @ExceptionHandler(ConstraintViolationException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
@@ -75,28 +119,6 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
         return ErrorResponseDTO.builder()
                 .error("خطای اعتبارسنجی")
-                .details(details)
-                .timestamp(LocalDateTime.now())
-                .build();
-    }
-
-    @ExceptionHandler(HttpMessageNotReadableException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ErrorResponseDTO handleHttpMessageNotReadable(HttpMessageNotReadableException ex) {
-
-        log.error("Failed to read request", ex);
-
-        String details = "فرمت درخواست نامعتبر است";
-
-        if (ex.getCause() instanceof InvalidFormatException) {
-            InvalidFormatException ifx = (InvalidFormatException) ex.getCause();
-            details = String.format("مقدار نامعتبر برای فیلد '%s': %s",
-                    ifx.getPath().get(0).getFieldName(),
-                    ifx.getValue());
-        }
-
-        return ErrorResponseDTO.builder()
-                .error("خطای خواندن درخواست")
                 .details(details)
                 .timestamp(LocalDateTime.now())
                 .build();
@@ -126,145 +148,95 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .build();
     }
 
-    @ExceptionHandler(Exception.class)
-    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    public ErrorResponseDTO handleGeneralException(Exception ex) {
-
-        log.error("Unexpected error occurred", ex);
+    @ExceptionHandler(BadRequestException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponseDTO handleBadRequest(BadRequestException ex) {
+        log.warn("BadRequest: {}", ex.getMessage());
 
         return ErrorResponseDTO.builder()
-                .error("خطای سرور")
-                .details("خطای غیر منتظره ای رخ داده")
+                .error("درخواست نامعتبر")
+                .details(ex.getMessage())
                 .timestamp(LocalDateTime.now())
                 .build();
     }
 
-    /**
-     *  ترجمه کلید پیام به متن فارسی
-     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ErrorResponseDTO handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        String message = extractConstraintMessage(ex);
+        log.warn("DataIntegrityViolation: {}", message);
+
+        return ErrorResponseDTO.builder()
+                .error("خطای یکتایی داده")
+                .details(message)
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponseDTO handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        String message = String.format("پارامتر نامعتبر: %s", ex.getName());
+        log.warn("TypeMismatch: {} -> {}", ex.getName(), ex.getValue());
+
+        return ErrorResponseDTO.builder()
+                .error("خطای نوع داده")
+                .details(message)
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    @ExceptionHandler(HttpMessageConversionException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponseDTO handleConversion(HttpMessageConversionException ex) {
+        log.warn("HttpMessageConversionException: {}", ex.getMessage());
+
+        return ErrorResponseDTO.builder()
+                .error("خطای تبدیل")
+                .details("فرمت درخواست نامعتبر است")
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    @ExceptionHandler(Exception.class)
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+    public ErrorResponseDTO handleGeneralException(Exception ex) {
+        log.error("Unexpected error occurred", ex);
+
+        return ErrorResponseDTO.builder()
+                .error("خطای سرور")
+                .details("خطای غیرمنتظره‌ای رخ داده است")
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    // ========== Helper Methods ==========
+
     private String translateMessage(String messageKey) {
+        if (messageKey == null || messageKey.trim().isEmpty()) {
+            return messageKey;
+        }
+
         try {
-            // حذف {} از کلید
             String cleanKey = messageKey
                     .replace("{", "")
                     .replace("}", "")
                     .trim();
 
-            // تلاش برای ترجمه
+            if (cleanKey.isEmpty()) {
+                return messageKey;
+            }
+
             return messageSource.getMessage(
                     cleanKey,
                     null,
-                    Locale.getDefault()
+                    Locale.forLanguageTag("fa-IR")
             );
 
         } catch (NoSuchMessageException e) {
-            // اگر کلید یافت نشد، خود پیام را برگردان
             log.warn("Message key not found: {}", messageKey);
             return messageKey;
         }
-    }
-
-
-
- /*   @ExceptionHandler(NotFoundException.class)
-    public ResponseEntity<ErrorResponseDTO> handleNotFound(NotFoundException ex) {
-
-        log.warn("NotFound: {}", ex.getMessage());
-
-        return ResponseEntity
-                .status(HttpStatus.NOT_FOUND)
-                .body(new ErrorResponseDTO(ex.getMessage()));
-    }*/
-
-
-    // ========== Validation Exceptions ==========
-    @ExceptionHandler(BadRequestException.class)
-    public ResponseEntity<Object> handleBadRequest(BadRequestException ex) {
-
-        log.warn("BadRequest: {}", ex.getMessage());
-        return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(new ErrorResponseDTO(ex.getMessage()));
-    }
-
-
-
-    // ========== Database Exceptions ==========
-
-    @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<ErrorResponseDTO> handleDataIntegrityViolation(
-            DataIntegrityViolationException ex) {
-
-        String message = extractConstraintMessage(ex);
-        log.warn("DataIntegrityViolation: {}", message);
-
-        return ResponseEntity
-                .status(HttpStatus.CONFLICT)
-                .body(new ErrorResponseDTO(message));
-    }
-
-
-
-    // ========== Type Conversion Exceptions ==========
-
-    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
-    public ResponseEntity<ErrorResponseDTO> handleTypeMismatch(
-            MethodArgumentTypeMismatchException ex) {
-
-        String message = String.format("پارامتر نامعتبر: %s", ex.getName());
-        log.warn("TypeMismatch: {} -> {}", ex.getName(), ex.getValue());
-
-        return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(new ErrorResponseDTO(message));
-    }
-
-    @ExceptionHandler(HttpMessageConversionException.class)
-    public ResponseEntity<ErrorResponseDTO> handleConversion(
-            HttpMessageConversionException ex) {
-
-        log.warn("HttpMessageConversionException: {}", ex.getMessage());
-
-        return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(new ErrorResponseDTO("فرمت درخواست نامعتبر است"));
-    }
-
-
-/*    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponseDTO> handleAll(Exception ex) {
-        log.error("Unhandled exception: ", ex);
-
-        return ResponseEntity
-                .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ErrorResponseDTO("خطای داخلی سرور", ex.getMessage()));
-    }*/
-
-
-
-   @Override
-    protected ResponseEntity<Object> handleMethodArgumentNotValid(
-            MethodArgumentNotValidException ex,
-            HttpHeaders headers,
-            HttpStatusCode status,
-            WebRequest request) {
-
-        Locale locale = LocaleContextHolder.getLocale();
-
-        String details = ex.getBindingResult()
-                .getFieldErrors()
-                .stream()
-                .map(error -> {
-                    String message = resolveMessage(error.getDefaultMessage(), locale);
-                    return error.getField() + ": " + message;
-                })
-                .collect(Collectors.joining("; "));
-
-        log.warn("Validation error: {}", details);
-
-        return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(new ErrorResponseDTO("خطای اعتبارسنجی", details));
     }
 
     private String resolveMessage(String messageTemplate, Locale locale) {
@@ -278,52 +250,44 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 return messageSource.getMessage(key, null, locale);
             } catch (Exception e) {
                 log.debug("Could not resolve message key: {}", key);
-                return messageTemplate; // fallback
+                return messageTemplate;
             }
         }
 
         return messageTemplate;
     }
 
-    // ========== Helper Methods ==========
-
     private String extractConstraintMessage(DataIntegrityViolationException ex) {
-
         String message = ex.getMessage();
 
         if (message == null) {
             return "خطای یکتایی داده";
         }
 
-        // شماره کارت تکراری
         if (message.contains("TBL_CARD") && message.contains("CARD_NUMBER")) {
             return extractCardNumber(message)
                     .map(cardNumber -> String.format("شماره کارت تکراری: %s", cardNumber))
                     .orElse("شماره کارت تکراری است");
         }
 
-        // کدملی تکراری
         if (message.contains("TBL_PERSON") && message.contains("NATIONAL_CODE")) {
             return extractNationalCode(message)
                     .map(nationalCode -> String.format("کدملی تکراری: %s", nationalCode))
                     .orElse("کدملی تکراری است");
         }
 
-        // شماره حساب تکراری
         if (message.contains("TBL_ACCOUNT") && message.contains("ACCOUNT_NUMBER")) {
             return extractAccountNumber(message)
                     .map(accountNumber -> String.format("شماره حساب تکراری: %s", accountNumber))
                     .orElse("شماره حساب تکراری است");
         }
 
-        // کد صادرکننده تکراری
         if (message.contains("TBL_ISSUER") && message.contains("ISSUER_CODE")) {
             return extractIssuerCode(message)
                     .map(issuerCode -> String.format("کد صادرکننده تکراری: %s", issuerCode))
                     .orElse("کد صادرکننده تکراری است");
         }
 
-        // Foreign key constraint
         if (message.contains("foreign key")) {
             return "ارجاع نامعتبر به رکورد مرتبط";
         }
@@ -332,57 +296,34 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     private Optional<String> extractCardNumber(String message) {
-        try {
-            // Extract: VALUES ( /* 1 */ '1234567812345678' )
-            Pattern pattern = Pattern.compile("VALUES.*?'(\\d{16})'");
-            Matcher matcher = pattern.matcher(message);
-            if (matcher.find()) {
-                return Optional.of(matcher.group(1));
-            }
-        } catch (Exception e) {
-            log.debug("Could not extract card number", e);
-        }
-        return Optional.empty();
+        return extractPattern(message, "VALUES.*?'(\\d{16})'");
     }
 
     private Optional<String> extractNationalCode(String message) {
-        try {
-            Pattern pattern = Pattern.compile("VALUES.*?'(\\d{10})'");
-            Matcher matcher = pattern.matcher(message);
-            if (matcher.find()) {
-                return Optional.of(matcher.group(1));
-            }
-        } catch (Exception e) {
-            log.debug("Could not extract national code", e);
-        }
-        return Optional.empty();
+        return extractPattern(message, "VALUES.*?'(\\d{10})'");
     }
 
     private Optional<String> extractAccountNumber(String message) {
+        return extractPattern(message, "VALUES.*?'(\\d{10})'");
+    }
+
+    private Optional<String> extractIssuerCode(String message) {
+        return extractPattern(message, "VALUES.*?'(\\d{6})'");
+    }
+
+    private Optional<String> extractPattern(String message, String regex) {
         try {
-            Pattern pattern = Pattern.compile("VALUES.*?'(\\d{10})'");
+            Pattern pattern = Pattern.compile(regex);
             Matcher matcher = pattern.matcher(message);
             if (matcher.find()) {
                 return Optional.of(matcher.group(1));
             }
         } catch (Exception e) {
-            log.debug("Could not extract account number", e);
+            log.debug("Could not extract pattern: {}", regex, e);
         }
         return Optional.empty();
     }
 
-    private Optional<String> extractIssuerCode(String message) {
-        try {
-            Pattern pattern = Pattern.compile("VALUES.*?'(\\d{6})'");
-            Matcher matcher = pattern.matcher(message);
-            if (matcher.find()) {
-                return Optional.of(matcher.group(1));
-            }
-        } catch (Exception e) {
-            log.debug("Could not extract issuer code", e);
-        }
-        return Optional.empty();
-    }
 
 }
 

@@ -9,7 +9,7 @@ public interface CardService {
 
     List<CardResponseDto> getCardsByNationalCode(String nationalCode);
 
-    CardDto createCard(CreateCardRequestDto dto) throws BadRequestException;
+    CardDto createCard(CardDto dto) throws BadRequestException;
 
 
     PagedResponseDto<CardResponseDto> searchCards(CardSearchDto searchDto);

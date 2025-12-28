@@ -51,10 +51,10 @@ public class CardController {
             @ApiResponse(responseCode = "500", description = "خطای داخلی سرور.")
     })
     @PostMapping
-    public ResponseEntity<CardDto> createCard(@Valid @RequestBody CreateCardRequestDto dto)
+    public ResponseEntity<CardDto> createCard(@Valid @RequestBody CardDto dto)
             throws BadRequestException {
 
-        log.info("POST /api/cards - cardNumber: {}", dto.getCardDto().getCardNumber());
+        log.info("POST /api/cards - cardNumber: {}", dto.getCardNumber());
 
         CardDto created = cardService.createCard(dto);
 
