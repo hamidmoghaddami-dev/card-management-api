@@ -9,12 +9,12 @@ import lombok.*;
 @Builder
 public class IssuerDto {
 
-    @NotBlank(message = "{issuer.code.invalid}")
-    @Size(min = 6, max = 6, message = "{issuer.code.invalid}")
-    @Pattern(regexp = "\\d+", message = "{issuer.code.invalid}")
+    @NotBlank(message = "issuer.code.invalid")
+    @Size(min = 6, max = 6, message = "issuer.code.invalid")
+    @Pattern(regexp = "\\d+", message = "issuer.code.invalid")
     private String issuerCode;
 
-    @NotBlank(message = "{issuer.name.blank}")
+    @NotBlank(message = "issuer.name.blank")
     @Size(max = 100)
     private String name;
 }

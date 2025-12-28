@@ -10,12 +10,12 @@ import lombok.*;
 @Builder
 public class AccountDto {
 
-    @NotBlank(message = "{account.number.invalid}")
-    @Size(min = 10, max = 10, message = "{account.number.invalid}")
-    @Pattern(regexp = "\\d+", message = "{account.number.invalid}")
+    @NotBlank(message = "account.number.invalid")
+    @Size(min = 10, max = 10, message = "account.number.invalid")
+    @Pattern(regexp = "\\d+", message = "account.number.invalid")
     private String accountNumber;
 
-    @NotNull(message = "{account.type.null}")
+    @NotNull(message = "account.type.null")
     private AccountType accountType;
 }
 
