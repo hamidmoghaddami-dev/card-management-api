@@ -27,8 +27,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("CardServiceImpl.search Unit Tests")
-class CardSearchServiceImplTest {
+@DisplayName("CardService.search Unit Tests")
+public class CardSearchServiceTest {
 
     @Mock
     private CardRepository cardRepository;

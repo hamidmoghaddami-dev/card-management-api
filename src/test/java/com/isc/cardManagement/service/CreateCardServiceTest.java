@@ -95,7 +95,8 @@ class CreateCardServiceTest {
                 .build();
 
         // Setup Request DTO
-        CardDto cardDto = CardDto.builder()
+
+        validRequest = CardDto.builder()
                 .cardNumber("6037997711223344")
                 .expirationMonth("12")
                 .expirationYear("1405")
@@ -103,8 +104,6 @@ class CreateCardServiceTest {
                 .issuerCode("603799")
                 .accountNumber("1234567890")
                 .build();
-
-        validRequest = cardDto;
     }
 
     @Test
