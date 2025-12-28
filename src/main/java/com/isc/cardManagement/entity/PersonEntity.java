@@ -23,28 +23,28 @@ public class PersonEntity {
     @Column(name = "person_id")
     private Long id;
 
-    @NotBlank(message = "{first.name.blank}")
+    @NotBlank(message = "first.name.blank")
     @Size(min = 2, max = 50)
     @Column(name = "first_name", nullable = false)
     private String firstName;
 
-    @NotBlank(message = "{last.name.blank}")
+    @NotBlank(message = "last.name.blank")
     @Size(min = 2, max = 50)
     @Column(name = "last_name", nullable = false)
     private String lastName;
 
-    @NotBlank(message = "{national.code.can.not.be.blank}")
+    @NotBlank(message = "national.code.can.not.be.blank")
     @Size(min = 10, max = 10)
     @Pattern(regexp = "\\d+", message = "{national.code.invalid}")
     @Column(name = "national_code", length = 10, unique = true, nullable = false)
     private String nationalCode;
 
-    @NotBlank(message = "{phone.invalid}")
-    @Pattern(regexp = "\\d{11}", message = "{phone.invalid}")
+    @NotBlank(message = "phone.invalid")
+    @Pattern(regexp = "\\d{11}", message = "phone.invalid")
     @Column(nullable = false)
     private String phone;
 
-    @NotBlank(message = "{address.blank}")
+    @NotBlank(message = "address.blank")
     @Size(max = 255)
     @Column(nullable = false)
     private String address;

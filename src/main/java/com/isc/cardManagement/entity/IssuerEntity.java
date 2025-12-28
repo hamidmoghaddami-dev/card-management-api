@@ -25,13 +25,13 @@ public class IssuerEntity {
     @Column(name = "issuer_id")
     private Long id;
 
-    @NotBlank(message = "{issuer.code.not.blank}")
+    @NotBlank(message = "issuer.code.not.blank")
     @Size(min = 6, max = 6)
     @Pattern(regexp = "\\d+")
     @Column(name = "issuer_code", nullable = false, unique = true, length = 6)
     private String issuerCode;
 
-    @NotBlank(message = "{issuer.name.not.blank}")
+    @NotBlank(message = "issuer.name.not.blank")
     @Size(max = 100)
     @Column(name = "issuer_name", nullable = false, length = 100)
     private String name;

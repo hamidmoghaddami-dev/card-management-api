@@ -31,26 +31,26 @@ public class CardEntity {
     @Column(name = "card_id")
     private Long id;
 
-    @NotBlank
+    @NotBlank(message = "card.number.can.not.be.null")
     @Size(min = 16, max = 16)
     @Pattern(regexp = "\\d+")
     @Column(name = "card_number", length = 16, unique = true, nullable = false)
     private String cardNumber;
 
-    @NotNull
+    @NotNull(message = "expiration.month.can.not.be.null")
     @Size(min = 2, max = 2)
     @Pattern(regexp = "^(0[1-9]|1[0-2])$", message = "ماه باید بین 01 تا 12 باشد")
     @Column(name = "expiration_month", nullable = false)
     private String expirationMonth;
 
-    @NotNull
+    @NotNull(message = "expiration.year.can.not.be.null")
     @Column(name = "expiration_year", nullable = false)
     private String expirationYear;
 
     @Column(name = "active", nullable = false)
     private boolean active = true;
 
-    @NotNull
+    @NotNull(message = "card.type.can.not.be.null")
     @Enumerated(EnumType.STRING)
     @Column(name = "card_type", nullable = false)
     private CardType cardType;

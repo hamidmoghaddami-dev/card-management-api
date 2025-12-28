@@ -26,7 +26,7 @@ public class AccountEntity {
     @Column(name = "account_id")
     private Long id;
 
-    @NotBlank
+    @NotBlank(message = "account.number.can.not.be.null")
     @Size(min = 10, max = 10)
     @Pattern(regexp = "\\d+")
     @Column(name = "account_number", unique = true, nullable = false, length = 10)
