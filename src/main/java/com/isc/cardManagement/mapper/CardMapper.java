@@ -11,6 +11,9 @@ import java.util.stream.Collectors;
 @Component
 public class CardMapper {
 
+    private CardMapper() {
+    }
+
     public static CardEntity toEntity(CardDto dto) {
         if (dto == null) return null;
 
