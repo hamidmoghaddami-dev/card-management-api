@@ -35,7 +35,7 @@ public class PersonEntity {
 
     @NotBlank(message = "national.code.can.not.be.blank")
     @Size(min = 10, max = 10)
-    @Pattern(regexp = "\\d+", message = "{national.code.invalid}")
+    @Pattern(regexp = "\\d+", message = "national.code.invalid")
     @Column(name = "national_code", length = 10, unique = true, nullable = false)
     private String nationalCode;
 

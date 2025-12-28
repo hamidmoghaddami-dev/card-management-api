@@ -40,16 +40,6 @@ public class IssuerEntity {
     private Set<CardEntity> cards = new HashSet<>();
 
 
-    public void addCard(CardEntity card) {
-        cards.add(card);
-        card.setIssuer(this);
-    }
-
-    public void removeCard(CardEntity card) {
-        cards.remove(card);
-        card.setIssuer(null);
-    }
-
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
