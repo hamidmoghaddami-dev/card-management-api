@@ -50,8 +50,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
         String details = "فرمت درخواست نامعتبر است";
 
-        if (ex.getCause() instanceof InvalidFormatException) {
-            InvalidFormatException ifx = (InvalidFormatException) ex.getCause();
+        if (ex.getCause() instanceof InvalidFormatException ifx) {
+            ifx = (InvalidFormatException) ex.getCause();
             if (!ifx.getPath().isEmpty()) {
                 details = String.format("مقدار نامعتبر برای فیلد '%s': %s",
                         ifx.getPath().get(0).getFieldName(),
@@ -83,8 +83,24 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .getFieldErrors()
                 .stream()
                 .map(error -> {
-                    String message = resolveMessage(error.getDefaultMessage(), locale);
-                    return error.getField() + ": " + message;
+                    String messageKey = error.getDefaultMessage();
+
+                    //  حذف {} از کلید
+                    if (messageKey != null && messageKey.startsWith("{") && messageKey.endsWith("}")) {
+                        messageKey = messageKey.substring(1, messageKey.length() - 1);
+                    }
+
+                    //  ترجمه پیام
+                    String translatedMessage;
+                    try {
+                        assert messageKey != null;
+                        translatedMessage = messageSource.getMessage(messageKey, null, locale);
+                    } catch (NoSuchMessageException e) {
+                        log.warn("Message key not found: {}", messageKey);
+                        translatedMessage = messageKey;
+                    }
+
+                    return error.getField() + ": " + translatedMessage;
                 })
                 .collect(Collectors.joining("; "));
 
@@ -142,7 +158,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         log.error("Business rule violation", ex);
 
         return ErrorResponseDTO.builder()
-                .error("خطای منطق کسب‌وکار")
+                .error("خطای منطق کسب کار")
                 .details(ex.getMessage())
                 .timestamp(LocalDateTime.now())
                 .build();
@@ -205,7 +221,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
         return ErrorResponseDTO.builder()
                 .error("خطای سرور")
-                .details("خطای غیرمنتظره‌ای رخ داده است")
+                .details("خطای غیر منتظره رخ داده")
                 .timestamp(LocalDateTime.now())
                 .build();
     }
@@ -237,24 +253,6 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             log.warn("Message key not found: {}", messageKey);
             return messageKey;
         }
-    }
-
-    private String resolveMessage(String messageTemplate, Locale locale) {
-        if (messageTemplate == null) {
-            return "خطای نامشخص";
-        }
-
-        if (messageTemplate.startsWith("{") && messageTemplate.endsWith("}")) {
-            String key = messageTemplate.substring(1, messageTemplate.length() - 1);
-            try {
-                return messageSource.getMessage(key, null, locale);
-            } catch (Exception e) {
-                log.debug("Could not resolve message key: {}", key);
-                return messageTemplate;
-            }
-        }
-
-        return messageTemplate;
     }
 
     private String extractConstraintMessage(DataIntegrityViolationException ex) {
@@ -323,7 +321,6 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         }
         return Optional.empty();
     }
-
 
 }
 
