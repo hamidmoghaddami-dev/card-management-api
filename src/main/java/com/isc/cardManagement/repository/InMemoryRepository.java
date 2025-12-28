@@ -266,11 +266,6 @@ public class InMemoryRepository {
     }
 
 
-    private String buildUniqueCardKey(String nationalCode, String cardType, String issuerCode) {
-        return String.format("%s_%s_%s", nationalCode, cardType, issuerCode);
-    }
-
-
     private void printStatistics() {
 
         log.info(" ═══════════════════════════════════════");
@@ -435,15 +430,6 @@ public class InMemoryRepository {
 
     private String buildUniqueKey(String nationalCode, CardType cardType, String issuerCode) {
         return String.format("%s_%s_%s", nationalCode, cardType, issuerCode);
-    }
-
-
-    private IssuerEntity parseIssuer(String data) {
-        String[] tokens = data.split(",");
-        IssuerEntity issuer = new IssuerEntity();
-        issuer.setIssuerCode(tokens[0].trim());
-        issuer.setName(tokens[1].trim());
-        return issuer;
     }
 
 

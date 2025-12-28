@@ -35,7 +35,7 @@ import static org.assertj.core.api.Assertions.*;
 })
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @DisplayName("InMemoryRepository unit Tests")
-class InMemoryRepositoryIntegrationTest {
+public class InMemoryRepositoryTest {
 
     @Autowired
     private TestEntityManager entityManager;

@@ -4,7 +4,6 @@ import com.isc.cardManagement.dto.PersonDto;
 import com.isc.cardManagement.entity.PersonEntity;
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 
 import java.util.Collections;
 import java.util.List;
@@ -24,7 +23,6 @@ public class PersonMapper {
         entity.setLastName(dto.getLastName());
         entity.setPhone(dto.getPhone());
         entity.setAddress(dto.getAddress());
-        // توجه: حساب‌ها رو اینجا نمیشه ست کرد چون در DTO نیستند
         return entity;
     }
 
@@ -42,7 +40,6 @@ public class PersonMapper {
     }
 
 
-    // تبدیل لیست Entity به لیست DTO
     public static List<PersonDto> toDtoList(List<PersonEntity> entities) {
         if (entities == null) return Collections.emptyList();
 
@@ -51,7 +48,6 @@ public class PersonMapper {
                 .collect(Collectors.toList());
     }
 
-    // تبدیل لیست DTO به لیست Entity
     public static List<PersonEntity> toEntityList(List<PersonDto> dtos) {
         if (dtos == null) return Collections.emptyList();
 

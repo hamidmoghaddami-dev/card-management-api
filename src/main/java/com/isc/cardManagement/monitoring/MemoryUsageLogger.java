@@ -28,7 +28,7 @@ public class MemoryUsageLogger {
         reporterThread = new Thread(() -> {
             while (!Thread.currentThread().isInterrupted()) {
                 try {
-                    printMemoryUsage("🧵 Thread Memory Report");
+                    printMemoryUsage("Thread Memory Report");
                     printEntityStats();
 
                     Thread.sleep(600_000);
@@ -53,7 +53,7 @@ public class MemoryUsageLogger {
                 reporterThread.join(5000); // حداکثر 5 ثانیه منتظر می‌ماند برای پایان نخ
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                System.err.println("قطع نخ گزارش‌گیری به درستی انجام نشد.");
+                System.err.println("قطع نخ گزارش گیری  به درستی انجام نگرفت");
             }
         }
     }
