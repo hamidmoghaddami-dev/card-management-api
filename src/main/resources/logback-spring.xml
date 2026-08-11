@@ -29,9 +29,9 @@
         <appender-ref ref="FILE"/>
     </root>
 
-    <logger name="com.isc.cardManagement" level="INFO"/>
+    <logger name="com.isc.cardmanagement" level="INFO"/>
 
 
-     <logger name="com.isc.cardManagement" level="DEBUG"/>
+     <logger name="com.isc.cardmanagement" level="DEBUG"/>
 
 </configuration>
