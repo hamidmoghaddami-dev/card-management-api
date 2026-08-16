@@ -20,43 +20,14 @@ public interface CardRepository extends JpaRepository<CardEntity, Long> {
 
     List<CardEntity> findAllByAccount(AccountEntity accountEntity);
 
-    List<CardEntity> findByAccount_Owner_NationalCode(String nationalCode);
-
     @Query("""
-        SELECT c FROM CardEntity c
-        WHERE c.account.owner.nationalCode = :nationalCode
-        AND c.cardType = :cardType
-        AND c.issuer.issuerCode = :issuerCode
-    """)
-    Optional<CardEntity> findByOwnerAndTypeAndIssuer(
-            @Param("nationalCode") String nationalCode,
-            @Param("cardType") CardType cardType,
-            @Param("issuerCode") String issuerCode
-    );
-
-    @Query("""
-        SELECT COUNT(c) FROM CardEntity c
-        WHERE c.account.owner.nationalCode = :nationalCode
-        AND c.cardType = :cardType
-        AND c.issuer.issuerCode = :issuerCode
-    """)
-    long countByOwnerAndTypeAndIssuer(
-            @Param("nationalCode") String nationalCode,
-            @Param("cardType") CardType cardType,
-            @Param("issuerCode") String issuerCode
-    );
-
-    @Query("""
-        SELECT c FROM CardEntity c
-        WHERE c.account.id = :accountId
-        AND c.cardType = :cardType
-        AND c.issuer.issuerCode = :issuerCode
-    """)
-    Optional<CardEntity> findByAccountAndTypeAndIssuer(
-            @Param("accountId") Long accountId,
-            @Param("cardType") CardType cardType,
-            @Param("issuerCode") String issuerCode
-    );
+            SELECT DISTINCT c FROM CardEntity c
+            LEFT JOIN FETCH c.account a
+            LEFT JOIN FETCH a.owner p
+            LEFT JOIN FETCH c.issuer i
+            WHERE p.nationalCode = :nationalCode
+            """)
+    List<CardEntity> findByOwnerNationalCode(@Param("nationalCode") String nationalCode);
 
 
     @Query("""

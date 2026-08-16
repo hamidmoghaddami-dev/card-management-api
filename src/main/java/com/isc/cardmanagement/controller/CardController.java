@@ -1,7 +1,6 @@
 package com.isc.cardmanagement.controller;
 
 import com.isc.cardmanagement.dto.*;
-import com.isc.cardmanagement.exception.BadRequestException;
 import com.isc.cardmanagement.service.CardService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -51,10 +50,9 @@ public class CardController {
             @ApiResponse(responseCode = "500", description = "خطای داخلی سرور.")
     })
     @PostMapping
-    public ResponseEntity<CardDto> createCard(@Valid @RequestBody CardDto dto)
-            throws BadRequestException {
+    public ResponseEntity<CardDto> createCard(@Valid @RequestBody CardDto dto) {
 
-        log.info("POST /api/cards - cardNumber: {}", dto.getCardNumber());
+        log.info("POST /api/v1/cards - cardNumber: {}", dto.getCardNumber());
 
         CardDto created = cardService.createCard(dto);
 

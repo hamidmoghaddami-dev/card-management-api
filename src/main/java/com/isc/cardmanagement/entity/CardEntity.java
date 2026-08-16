@@ -44,6 +44,7 @@ public class CardEntity {
     private String expirationMonth;
 
     @NotNull(message = "expiration.year.can.not.be.null")
+    @Pattern(regexp = "^\\d{2,4}$", message = "expiration.year.invalid")
     @Column(name = "expiration_year", nullable = false)
     private String expirationYear;
 

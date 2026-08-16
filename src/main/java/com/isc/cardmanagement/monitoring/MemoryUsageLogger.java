@@ -5,12 +5,15 @@ import com.isc.cardmanagement.repository.jpa.AccountRepository;
 import com.isc.cardmanagement.repository.jpa.CardRepository;
 import com.isc.cardmanagement.repository.jpa.IssuerRepository;
 import com.isc.cardmanagement.repository.jpa.PersonRepository;
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
-import org.springframework.stereotype.Component;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
 
+@Slf4j
 @Component
+@EnableScheduling
 @RequiredArgsConstructor
 public class MemoryUsageLogger {
 
@@ -21,40 +24,13 @@ public class MemoryUsageLogger {
     private final CardRepository cardRepository;
     private final IssuerRepository issuerRepository;
 
-    private Thread reporterThread;
-
-    @PostConstruct
-    public void startReportingThread() {
-        reporterThread = new Thread(() -> {
-            while (!Thread.currentThread().isInterrupted()) {
-                try {
-                    printMemoryUsage("Thread Memory Report");
-                    printEntityStats();
-
-                    Thread.sleep(600_000);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt(); // نخ رو مجددا قطع کن
-                } catch (Exception e) {
-                    System.err.println("خطا در گزارش مصرف حافظه: " + e.getMessage());
-                    e.printStackTrace();
-                }
-            }
-        });
-
-        reporterThread.setDaemon(true);
-        reporterThread.start();
-    }
-
-    @PreDestroy
-    public void stopReportingThread() {
-        if (reporterThread != null && reporterThread.isAlive()) {
-            reporterThread.interrupt();
-            try {
-                reporterThread.join(5000); // حداکثر 5 ثانیه منتظر می‌ماند برای پایان نخ
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                System.err.println("قطع نخ گزارش گیری  به درستی انجام نگرفت");
-            }
+    @Scheduled(initialDelay = 60_000, fixedDelay = 600_000)
+    public void reportMemoryUsage() {
+        try {
+            printMemoryUsage("Thread Memory Report");
+            printEntityStats();
+        } catch (Exception e) {
+            log.error("خطا در گزارش مصرف حافظه: {}", e.getMessage(), e);
         }
     }
 
@@ -65,22 +41,20 @@ public class MemoryUsageLogger {
         long used = total - free;
         long max = runtime.maxMemory();
 
-        System.out.printf("%n====================== %s ======================%n", stage);
-        System.out.printf("🧠 Total Memory: %.2f MB%n", total / (1024.0 * 1024));
-        System.out.printf("🟢 Free Memory: %.2f MB%n", free / (1024.0 * 1024));
-        System.out.printf("🔴 Used Memory: %.2f MB%n", used / (1024.0 * 1024));
-        System.out.printf("📈 Max Memory: %.2f MB%n", max / (1024.0 * 1024));
+        log.info("====================== {} ======================", stage);
+        log.info("Total Memory: {:.2f} MB", total / (1024.0 * 1024));
+        log.info("Free Memory: {:.2f} MB", free / (1024.0 * 1024));
+        log.info("Used Memory: {:.2f} MB", used / (1024.0 * 1024));
+        log.info("Max Memory: {:.2f} MB", max / (1024.0 * 1024));
     }
 
     private void printEntityStats() {
-        System.out.println("========== 📊 Entity Counts (From H2) ==========");
-        System.out.println(" Persons: " + personRepository.count());
-        System.out.println(" Accounts: " + accountRepository.count());
-        System.out.println(" Cards: " + cardRepository.count());
-        System.out.println(" Issuers: " + issuerRepository.count());
-        System.out.println("========== 📦 In-Memory Map ==========");
-        System.out.println(" NationalCode Map Entries: " + inMemoryRepository.getAll().size());
-        System.out.println("=============================================\n");
+        log.info("========== Entity Counts (From H2) ==========");
+        log.info("Persons: {}", personRepository.count());
+        log.info("Accounts: {}", accountRepository.count());
+        log.info("Cards: {}", cardRepository.count());
+        log.info("Issuers: {}", issuerRepository.count());
+        log.info("========== In-Memory Map ==========");
+        log.info("NationalCode Map Entries: {}", inMemoryRepository.getAll().size());
     }
 }
-

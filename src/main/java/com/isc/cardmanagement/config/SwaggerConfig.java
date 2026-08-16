@@ -32,7 +32,7 @@ public class SwaggerConfig {
                                 new SecurityScheme()
                                         .type(SecurityScheme.Type.HTTP)
                                         .scheme("basic")
-                                        .description("Basic Authentication با username=user و password=password")));
+                                        .description("Basic Authentication")));
     }
 
 }

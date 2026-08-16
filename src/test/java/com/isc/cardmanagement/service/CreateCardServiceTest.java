@@ -117,11 +117,9 @@ class CreateCardServiceTest {
         when(issuerRepository.findByIssuerCode("603799"))
                 .thenReturn(Optional.of(mockIssuer));
 
-        when(cardRepository.saveAndFlush(any(CardEntity.class)))
-                .thenReturn(mockCard);
-
         when(inMemoryRepository.saveCard(any(CardEntity.class)))
                 .thenReturn(mockCard);
+
         // When
         CardDto result = cardService.createCard(validRequest);
 
@@ -134,15 +132,18 @@ class CreateCardServiceTest {
         assertThat(result.isActive()).isTrue();
 
         // Verify interactions
-        verify(accountRepository, times(2)).findByAccountNumber("1234567890");
+        verify(accountRepository, times(1)).findByAccountNumber("1234567890");
         verify(inMemoryRepository).getCardsByNationalCode("1234567890");
         verify(issuerRepository).findByIssuerCode("603799");
-        verify(cardRepository).saveAndFlush(argThat(card ->
+        verify(inMemoryRepository).saveCard(argThat(card ->
                 card.getCardNumber().equals("6037997711223344") &&
                         card.getCardType() == CardType.DEBIT &&
-                        card.isActive()
+                        card.isActive() &&
+                        card.getAccount() == mockAccount &&
+                        card.getIssuer() == mockIssuer
         ));
-        verify(inMemoryRepository).saveCard(any(CardEntity.class));
+        // خدمت کارت را مستقیم در دیتابیس ذخیره نمی‌کند؛ ذخیره در داخل saveCard انجام می‌شود
+        verify(cardRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -160,7 +161,7 @@ class CreateCardServiceTest {
         // Verify که فقط یک بار جستجو شد
         verify(accountRepository, times(1)).findByAccountNumber("1234567890");
         verify(inMemoryRepository, never()).getCardsByNationalCode(anyString());
-        verify(cardRepository, never()).saveAndFlush(any());
+        verify(inMemoryRepository, never()).saveCard(any());
     }
 
     @Test
@@ -185,7 +186,6 @@ class CreateCardServiceTest {
 
         verify(accountRepository, times(1)).findByAccountNumber("1234567890");
         verify(inMemoryRepository).getCardsByNationalCode("1234567890");
-        verify(cardRepository, never()).saveAndFlush(any());
         verify(inMemoryRepository, never()).saveCard(any());
     }
 
@@ -207,9 +207,8 @@ class CreateCardServiceTest {
                 .isInstanceOf(NotFoundException.class)
                 .hasMessage("صادرکننده یافت نشد");
 
-        verify(accountRepository, times(2)).findByAccountNumber("1234567890");
+        verify(accountRepository, times(1)).findByAccountNumber("1234567890");
         verify(issuerRepository).findByIssuerCode("603799");
-        verify(cardRepository, never()).saveAndFlush(any());
         verify(inMemoryRepository, never()).saveCard(any());
     }
 
@@ -236,9 +235,6 @@ class CreateCardServiceTest {
         when(issuerRepository.findByIssuerCode("603799"))
                 .thenReturn(Optional.of(mockIssuer));
 
-        when(cardRepository.saveAndFlush(any(CardEntity.class)))
-                .thenReturn(mockCard);
-
         when(inMemoryRepository.saveCard(any(CardEntity.class)))
                 .thenReturn(mockCard);
 
@@ -249,14 +245,12 @@ class CreateCardServiceTest {
         assertThat(result).isNotNull();
         assertThat(result.getCardNumber()).isEqualTo("6037997711223344");
 
-        verify(cardRepository).saveAndFlush(any(CardEntity.class));
         verify(inMemoryRepository).saveCard(any(CardEntity.class));
     }
 
-
     @Test
-    @DisplayName("بررسی ذخیره در InMemory بعد از Database")
-    void createCard_SavesInMemoryAfterDatabase() {
+    @DisplayName("باید کارت از طریق saveCard ذخیره و سینک شود")
+    void createCard_SavesThroughInMemoryRepository() {
         // Given
         when(accountRepository.findByAccountNumber("1234567890"))
                 .thenReturn(Optional.of(mockAccount));
@@ -267,20 +261,15 @@ class CreateCardServiceTest {
         when(issuerRepository.findByIssuerCode("603799"))
                 .thenReturn(Optional.of(mockIssuer));
 
-        when(cardRepository.saveAndFlush(any(CardEntity.class)))
-                .thenReturn(mockCard);
-
-        // تغییر از doNothing به when().thenReturn()
         when(inMemoryRepository.saveCard(any(CardEntity.class)))
                 .thenReturn(mockCard);
 
         // When
         cardService.createCard(validRequest);
 
-        // Then - بررسی ترتیب فراخوانی
-        var inOrder = inOrder(cardRepository, inMemoryRepository);
-        inOrder.verify(cardRepository).saveAndFlush(any(CardEntity.class));
-        inOrder.verify(inMemoryRepository).saveCard(any(CardEntity.class));
+        // Then - ذخیره دیتابیس و سینک کش فقط داخل saveCard اتفاق می‌افتد
+        verify(inMemoryRepository).saveCard(any(CardEntity.class));
+        verify(cardRepository, never()).saveAndFlush(any());
     }
 
 
@@ -297,18 +286,14 @@ class CreateCardServiceTest {
         when(issuerRepository.findByIssuerCode("603799"))
                 .thenReturn(Optional.of(mockIssuer));
 
-        when(cardRepository.saveAndFlush(any(CardEntity.class)))
-                .thenReturn(mockCard);
-
-        // اگر saveCard مقداری برمی‌گرداند (مثلا CardEntity یا boolean)
         when(inMemoryRepository.saveCard(any(CardEntity.class)))
-                .thenReturn(mockCard); // یا true اگر boolean برمی‌گرداند
+                .thenReturn(mockCard);
 
         // When
         cardService.createCard(validRequest);
 
-        // Then - بررسی دقیق مقادیر Entity
-        verify(cardRepository).saveAndFlush(argThat(card -> {
+        // Then - بررسی دقیق مقادیر Entity ارسال‌شده به saveCard
+        verify(inMemoryRepository).saveCard(argThat(card -> {
             assertThat(card.getCardNumber()).isEqualTo("6037997711223344");
             assertThat(card.getCardType()).isEqualTo(CardType.DEBIT);
             assertThat(card.getExpirationMonth()).isEqualTo("12");
@@ -320,4 +305,3 @@ class CreateCardServiceTest {
         }));
     }
 }
-

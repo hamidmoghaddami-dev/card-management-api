@@ -25,7 +25,6 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Repository
@@ -268,7 +267,7 @@ public class InMemoryRepository {
 
     private void printStatistics() {
 
-        log.info(" ═══════════════════════════════════════");
+        log.info("═══════════════════════════════════════");
         log.info(" Final Cache Statistics:");
         log.info(" ─────────────────────────────────────");
         log.info(" Persons in cache     : {}", personMap.size());
@@ -290,12 +289,13 @@ public class InMemoryRepository {
     }
 
     @Transactional
-    public CardEntity saveCard(CardEntity card) throws BadRequestException {
+    public CardEntity saveCard(CardEntity card) {
         validateCard(card);
         String nationalCode = card.getAccount().getOwner().getNationalCode();
 
-        String uniqueKey = buildUniqueKey(nationalCode, card.getCardType(),
-                card.getIssuer().getIssuerCode());
+        String uniqueKey = buildUniqueKey(card.getAccount().getId(),
+                card.getCardType(),
+                card.getIssuer().getId());
 
         if (uniqueCardConstraintMap.containsKey(uniqueKey)) {
             throw new BadRequestException(
@@ -328,19 +328,17 @@ public class InMemoryRepository {
             return Collections.emptySet();
         }
 
-        List<AccountEntity> accounts = accountRepository.findAllByOwner(person);
-        Set<CardEntity> dbCards = accounts.stream()
-                .flatMap(account -> cardRepository.findAllByAccount(account).stream())
-                .collect(Collectors.toSet());
+        List<CardEntity> dbCards = cardRepository.findByOwnerNationalCode(nationalCode);
 
         dbCards.forEach(card -> {
-            String uniqueKey = buildUniqueKey(nationalCode, card.getCardType(),
-                    card.getIssuer().getIssuerCode());
+            String uniqueKey = buildUniqueKey(card.getAccount().getId(),
+                    card.getCardType(),
+                    card.getIssuer().getId());
             syncCardToCache(card, nationalCode, uniqueKey);
         });
 
         log.info("Synced {} card(s) from DB to cache for {}", dbCards.size(), nationalCode);
-        return dbCards;
+        return new HashSet<>(dbCards);
     }
 
     private void processCard(String data) {
@@ -381,7 +379,14 @@ public class InMemoryRepository {
 
             AccountEntity cachedAccount = accountMap.get(accountNumber);
             String nationalCode = cachedAccount.getOwner().getNationalCode();
-            String uniqueKey = buildUniqueKey(nationalCode, cardType, issuerCode);
+
+            AccountEntity managedAccount = accountRepository.findByAccountNumber(accountNumber)
+                    .orElseThrow(() -> new RuntimeException("Account not found in DB: " + accountNumber));
+
+            IssuerEntity managedIssuer = issuerRepository.findByIssuerCode(issuerCode)
+                    .orElseThrow(() -> new RuntimeException("Issuer not found in DB: " + issuerCode));
+
+            String uniqueKey = buildUniqueKey(managedAccount.getId(), cardType, managedIssuer.getId());
 
             if (uniqueCardConstraintMap.containsKey(uniqueKey)) {
                 log.warn("Duplicate card constraint violated: {}", uniqueKey);
@@ -394,12 +399,6 @@ public class InMemoryRepository {
                 log.debug("Card already exists in DB: {}", cardNumber);
                 return;
             }
-
-            AccountEntity managedAccount = accountRepository.findByAccountNumber(accountNumber)
-                    .orElseThrow(() -> new RuntimeException("Account not found in DB: " + accountNumber));
-
-            IssuerEntity managedIssuer = issuerRepository.findByIssuerCode(issuerCode)
-                    .orElseThrow(() -> new RuntimeException("Issuer not found in DB: " + issuerCode));
 
             CardEntity newCard = CardEntity.builder()
                     .cardNumber(cardNumber)
@@ -428,8 +427,8 @@ public class InMemoryRepository {
         uniqueCardConstraintMap.put(uniqueKey, card);
     }
 
-    private String buildUniqueKey(String nationalCode, CardType cardType, String issuerCode) {
-        return String.format("%s_%s_%s", nationalCode, cardType, issuerCode);
+    private String buildUniqueKey(Long accountId, CardType cardType, Long issuerId) {
+        return String.format("%d_%s_%d", accountId, cardType, issuerId);
     }
 
 
@@ -452,6 +451,7 @@ public class InMemoryRepository {
         issuerMap.clear();
         accountMap.clear();
         cardMap.clear();
+        uniqueCardConstraintMap.clear();
         log.info("In-memory repository cleared");
     }
 

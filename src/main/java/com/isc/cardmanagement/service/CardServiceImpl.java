@@ -4,7 +4,6 @@ import com.isc.cardmanagement.dto.*;
 import com.isc.cardmanagement.entity.AccountEntity;
 import com.isc.cardmanagement.entity.CardEntity;
 import com.isc.cardmanagement.entity.IssuerEntity;
-import com.isc.cardmanagement.exception.BadRequestException;
 import com.isc.cardmanagement.exception.BusinessException;
 import com.isc.cardmanagement.exception.NotFoundException;
 import com.isc.cardmanagement.mapper.CardMapper;
@@ -52,14 +51,15 @@ public class CardServiceImpl implements CardService {
 
     @Override
     @Transactional
-    public CardDto createCard(CardDto dto) throws BadRequestException {
+    public CardDto createCard(CardDto dto) {
 
         log.info("Creating card: {}", dto.getCardNumber());
 
-        String ownerNationalCode = accountRepository
+        AccountEntity account = accountRepository
                 .findByAccountNumber(dto.getAccountNumber())
-                .map(acc -> acc.getOwner().getNationalCode())
                 .orElseThrow(() -> new NotFoundException("حساب یافت نشد"));
+
+        String ownerNationalCode = account.getOwner().getNationalCode();
 
         Set<CardEntity> existingCards = inMemoryRepository
                 .getCardsByNationalCode(ownerNationalCode);
@@ -71,10 +71,6 @@ public class CardServiceImpl implements CardService {
             throw new BusinessException(
                     String.format("شماره کارت تکراری: %s", dto.getCardNumber()));
         }
-
-        AccountEntity account = accountRepository
-                .findByAccountNumber(dto.getAccountNumber())
-                .orElseThrow(() -> new NotFoundException("حساب یافت نشد"));
 
         IssuerEntity issuer = issuerRepository
                 .findByIssuerCode(dto.getIssuerCode())
@@ -90,10 +86,7 @@ public class CardServiceImpl implements CardService {
                 .active(true)
                 .build();
 
-        CardEntity saved = cardRepository.saveAndFlush(card);
-
-
-        inMemoryRepository.saveCard(saved);
+        CardEntity saved = inMemoryRepository.saveCard(card);
 
         log.info("Card created successfully: {}", saved.getCardNumber());
 

@@ -21,6 +21,7 @@ public class CardDto {
     private String expirationMonth;
 
     @NotBlank(message = "expiration.year.invalid")
+    @Pattern(regexp = "^\\d{2,4}$", message = "expiration.year.invalid")
     private String expirationYear;
 
     private boolean active;
